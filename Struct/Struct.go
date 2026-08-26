@@ -659,8 +659,8 @@ header "X-Via" "haproxy-www-6g1x";
 
 http-stager {
 
-set uri_x86 "/messages/DALBNSf25";
-set uri_x64 "/messages/DALBNSF25";
+set uri_x86 "/messages/{{.Variables.stager_x86}}";
+set uri_x64 "/messages/{{.Variables.stager_x64}}";
 
 client {
 header "Accept" "*/*";
@@ -819,8 +819,8 @@ server {
 
 http-stager {
 
-set uri_x86 "/Meeting/{{.Variables.UValue}}/";
-set uri_x64 "/Meeting/{{.Variables.UValue}}/";
+set uri_x86 "/Meeting/{{.Variables.stager_x86}}/";
+set uri_x64 "/Meeting/{{.Variables.stager_x64}}/";
 
 client {
 	header "Host" "{{.Variables.Host}}";

@@ -75,6 +75,25 @@ type Beacon_SSL struct {
 var num_Profile int
 var Post bool
 
+// validateNumber checks an operator-supplied numeric flag before it reaches the
+// profile. These values were written out unchecked, so "-Sleep abc" emitted
+// `set sleeptime "abc000"` and "-Jitter 150" emitted a jitter percentage
+// outside the permitted 0-99 range. Neither failed here: they failed when the
+// teamserver refused to load the profile, which is the worst time to find out.
+// A max of 0 means the flag has no meaningful upper bound.
+func validateNumber(flagName, value string, min, max int) {
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		log.Fatalf("Error: %s must be a whole number, got %q", flagName, value)
+	}
+	if n < min {
+		log.Fatalf("Error: %s must be %d or greater, got %d", flagName, min, n)
+	}
+	if max > 0 && n > max {
+		log.Fatalf("Error: %s must be between %d and %d, got %d", flagName, min, max, n)
+	}
+}
+
 func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool) {
 	Beacon_Com := &Beacon_Com{}
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
@@ -132,17 +151,21 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 		HostStageMessage = "[!] Host Staging Is Enabled - Staged Payloads Are Available But Your Beacon Payload Is Available To Anyone That Connects To Your Server To Request It"
 	}
 	if sleeptime != "" {
+		validateNumber("-Sleep", sleeptime, 0, 0)
 		Beacon_Com.Variables["sleep"] = sleeptime + "000"
 	} else if sleeptime == "" {
 		Beacon_Com.Variables["sleep"] = Utils.GenerateNumer(30, 75) + "000"
 	}
 	if jitter != "" {
+		// Cobalt Strike requires jitter to be a percentage in the range 0-99.
+		validateNumber("-Jitter", jitter, 0, 99)
 		Beacon_Com.Variables["jitter"] = jitter
 	}
 	if jitter == "" {
 		Beacon_Com.Variables["jitter"] = Utils.GenerateNumer(10, 40)
 	}
 	if datajitter != "" {
+		validateNumber("-Datajitter", datajitter, 0, 0)
 		Beacon_Com.Variables["datajitter"] = datajitter
 	}
 	if datajitter == "" {
@@ -150,16 +173,19 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 	}
 
 	if tasks_max_size != "" {
+		validateNumber("-TasksMaxSize", tasks_max_size, 1, 0)
 		Beacon_Com.Variables["tasks_max_size"] = tasks_max_size
 	} else {
 		Beacon_Com.Variables["tasks_max_size"] = "1048576"
 	}
 	if tasks_proxy_max_size != "" {
+		validateNumber("-TasksProxyMaxSize", tasks_proxy_max_size, 1, 0)
 		Beacon_Com.Variables["tasks_proxy_max_size"] = tasks_proxy_max_size
 	} else {
 		Beacon_Com.Variables["tasks_proxy_max_size"] = "921600"
 	}
 	if tasks_dns_proxy_max_size != "" {
+		validateNumber("-TasksDnsProxyMaxSize", tasks_dns_proxy_max_size, 1, 0)
 		Beacon_Com.Variables["tasks_dns_proxy_max_size"] = tasks_dns_proxy_max_size
 	} else {
 		Beacon_Com.Variables["tasks_dns_proxy_max_size"] = "71680"
@@ -333,6 +359,14 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	Beacon_GETPOST.Variables["UValue"] = Utils.GenerateValue(6, 15)
 	Beacon_GETPOST.Variables["CSMValue"] = Utils.GenerateValue(6, 15)
 
+	// Stager URIs are generated per architecture, and deliberately not from
+	// UValue: UValue also appears in the beacon's own check-in traffic (the
+	// "U="/"REF=ID=" prepends and the wla42 cookie), so reusing it here would
+	// tie the staging request and the check-ins together with one shared
+	// token. Length is varied so the segment isn't a fixed-width tell.
+	Beacon_GETPOST.Variables["stager_x86"] = Utils.GenerateSingleValue(8 + Utils.RandIndex(5))
+	Beacon_GETPOST.Variables["stager_x64"] = Utils.GenerateSingleValue(8 + Utils.RandIndex(5))
+
 	//needs to be put stacic
 	if Forwarder == true {
 		Beacon_GETPOST.Variables["forward"] = "true"
@@ -481,12 +515,10 @@ func GenerateProcessInject(processinject_min_alloc, injector string) map[string]
 		Process_Inject.Variables["processinject_min_alloc"] = Utils.GenerateNumer(4096, 57841)
 	}
 	if processinject_min_alloc != "" {
-		processinject_min_alloc_int, _ := strconv.Atoi(processinject_min_alloc)
-		if processinject_min_alloc_int < 4096 {
-			log.Fatal("Error: Minimum amount of memory to request for injected content needs to be greater than 4096")
-		} else {
-			Process_Inject.Variables["processinject_min_alloc"] = processinject_min_alloc
-		}
+		// The Atoi error was discarded here, so "-Allocation abc" parsed as 0
+		// and reported the misleading "needs to be greater than 4096".
+		validateNumber("-Allocation", processinject_min_alloc, 4096, 0)
+		Process_Inject.Variables["processinject_min_alloc"] = processinject_min_alloc
 	}
 	Process_Inject.Variables["ThreadStartNum"] = Utils.GenerateNumer(500, 2500)
 	Process_Inject.Variables["ThreadStartNumv2"] = Utils.GenerateNumer(500, 2500)
