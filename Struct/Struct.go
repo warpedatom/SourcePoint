@@ -1334,7 +1334,6 @@ stage {
 	set stomppe "true";
 	set cleanup "true";
 	set userwx "false";
-	set smartinject "{{.Variables.smartinject}}";
 	beacon_gate {
 	    {{.Variables.beacongate}}
 	}
@@ -1346,7 +1345,7 @@ stage {
 
 	#TCP and SMB beacons will obfuscate themselves while they wait for a new connection.
 	#They will also obfuscate themselves while they wait to read information from their parent Beacon.
-	set sleep_mask {{.Variables.sleep_mask}};
+	set sleep_mask "{{.Variables.sleep_mask}}";
 	set eaf_bypass "{{.Variables.eaf_bypass}}";
 	set rdll_use_syscalls "{{.Variables.rdll_use_syscalls}}";
 	set copy_pe_header "{{.Variables.copy_pe_header}}";
@@ -1624,7 +1623,7 @@ post-ex {
 	{{.Variables.thread_hint}}
 
     # pass key function pointers from Beacon to its child jobs
-    set smartinject "true";
+    set smartinject "{{.Variables.smartinject}}";
  
     # disable AMSI in powerpick, execute-assembly, and psinject
     set amsi_disable "false";

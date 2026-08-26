@@ -108,9 +108,9 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 
 	fmt.Println("[*] Preparing Varibles...")
 	HostStageMessage, Beacon_Com.Variables = GenerateComunication(stage, sleeptime, jitter, useragent, datajitter, tasks_max_size, tasks_proxy_max_size, tasks_dns_proxy_max_size, httplib)
-	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof)
+	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof, smartinject)
 	Beacon_GETPOST.Variables = GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customuriPOST, CDN, CDN_Value, Profile, Forwarder)
-	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, rdll_loader, transform_obfuscate, smartinject, sleep_mask)
+	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, rdll_loader, transform_obfuscate, sleep_mask)
 	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector)
 	Beacon_GETPOST_Profile.Variables, Beacon_SSL.Variables = GenerateProfile(Profile, CDN, CDN_Value, cert_password, custom_cert, ProfilePath, Host)
 	fmt.Println("[*] Building Profile...")
@@ -246,9 +246,18 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 	return HostStageMessage, Beacon_Com.Variables
 }
 
-func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof bool) map[string]string {
+func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof bool, smartinject bool) map[string]string {
 	Beacon_PostEX := &Beacon_PostEX{}
 	Beacon_PostEX.Variables = make(map[string]string)
+	// smartinject is a post-ex option. It used to be emitted into the stage
+	// block instead, where Cobalt Strike rejects it, while the post-ex copy was
+	// hardcoded to "true" - so -SmartInject drove the invalid one and had no
+	// effect on the profile that was actually meant to carry it.
+	if smartinject {
+		Beacon_PostEX.Variables["smartinject"] = "true"
+	} else {
+		Beacon_PostEX.Variables["smartinject"] = "false"
+	}
 	if Post_EX_Process_Name != "" {
 		num_PSPN, err := strconv.Atoi(Post_EX_Process_Name)
 		if err != nil || num_PSPN < 1 || num_PSPN > len(Struct.Post_EX_Process_Name) {
@@ -377,7 +386,7 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	return Beacon_GETPOST.Variables
 }
 
-func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool) (map[string]string, map[string]string, string) {
+func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, sleep_mask bool) (map[string]string, map[string]string, string) {
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p1.Variables = make(map[string]string)
 
@@ -418,11 +427,6 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 		Beacon_Stage_p1.Variables["copy_pe_header"] = "true"
 	} else {
 		Beacon_Stage_p1.Variables["copy_pe_header"] = "false"
-	}
-	if smartinject == true {
-		Beacon_Stage_p1.Variables["smartinject"] = "true"
-	} else {
-		Beacon_Stage_p1.Variables["smartinject"] = "false"
 	}
 	if sleep_mask == true {
 		Beacon_Stage_p1.Variables["sleep_mask"] = "true"
