@@ -112,8 +112,10 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 	} else {
 		fmt.Println("[!] " + syscall_method + " syscall method selected")
 	}
-	Name, _ := strconv.Atoi(Profile)
-	fmt.Println("[*] Seleted Profile: " + Struct.Profile_Names[Name])
+	// num_Profile holds the resolved profile, including the one picked at
+	// random when -Profile was not supplied. Re-parsing the raw flag here meant
+	// a randomly selected profile always printed as an empty name.
+	fmt.Println("[*] Selected Profile: " + Struct.Profile_Names[num_Profile])
 	fmt.Println("[+] Profile Generated: " + outFile)
 	fmt.Println("[+] Happy Hacking")
 }
@@ -162,10 +164,10 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 	} else {
 		Beacon_Com.Variables["tasks_dns_proxy_max_size"] = "71680"
 	}
-	SSH_Numb, _ := strconv.Atoi(Utils.GenerateNumer(0, 4))
+	SSH_Numb := Utils.RandIndex(len(Struct.SSH_Banner))
 	Beacon_Com.Variables["SSH_Banner"] = Struct.SSH_Banner[SSH_Numb]
 
-	pipe_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 7))
+	pipe_number := Utils.RandIndex(len(Struct.Pipename_list))
 	Beacon_Com.Variables["pipename"] = Struct.Pipename_list[pipe_number] + Utils.GenerateNumer(3000, 9000)
 	Beacon_Com.Variables["pipename_stager"] = Struct.Pipename_list[pipe_number] + Utils.GenerateNumer(1000, 9000)
 	Beacon_Com.Variables["SSH_pipename"] = Struct.Pipename_list[pipe_number]
@@ -204,7 +206,7 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 		}
 	}
 	if useragent == "" {
-		num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 64))
+		num_agent := Utils.RandIndex(len(Struct.Useragent_list))
 		Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
 
 	}
@@ -222,11 +224,14 @@ func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof
 	Beacon_PostEX := &Beacon_PostEX{}
 	Beacon_PostEX.Variables = make(map[string]string)
 	if Post_EX_Process_Name != "" {
-		num_PSPN, _ := strconv.Atoi(Post_EX_Process_Name)
+		num_PSPN, err := strconv.Atoi(Post_EX_Process_Name)
+		if err != nil || num_PSPN < 1 || num_PSPN > len(Struct.Post_EX_Process_Name) {
+			log.Fatalf("Error: PostEX_Name must be a number between 1 and %d", len(Struct.Post_EX_Process_Name))
+		}
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[(num_PSPN - 1)]
 	}
 	if Post_EX_Process_Name == "" {
-		num_Post_EX_Process_Name, _ := strconv.Atoi(Utils.GenerateNumer(0, 14))
+		num_Post_EX_Process_Name := Utils.RandIndex(len(Struct.Post_EX_Process_Name))
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[num_Post_EX_Process_Name]
 	}
 	if Keylogger == "GetAsyncKeyState" || Keylogger == "SetWindowsHookEx" {
@@ -234,10 +239,13 @@ func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof
 	} else if Keylogger == "" {
 		Beacon_PostEX.Variables["Keylogger"] = "SetWindowsHookEx"
 	} else {
+		// Previously an empty branch, which left the keylogger unset and
+		// emitted a profile Cobalt Strike rejects at load time.
+		log.Fatal("Error: Keylogger must be either GetAsyncKeyState or SetWindowsHookEx")
 	}
 
 	if ThreadSpoof == true {
-		threadhint_num, _ := strconv.Atoi(Utils.GenerateNumer(0, 8))
+		threadhint_num := Utils.RandIndex(len(Struct.Thread_list))
 		Beacon_PostEX.Variables["thread_hint"] = "set thread_hint \"" + Struct.Thread_list[(threadhint_num)] + Utils.GenHex() + "\";"
 	} else {
 		Beacon_PostEX.Variables["thread_hint"] = ""
@@ -251,9 +259,15 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	Beacon_GETPOST.Variables = make(map[string]string)
 	Beacon_GETPOST.Variables["Host"] = Host
 	if Profile == "" {
+		// Profiles 5-7 need a keystore/CDN and 8 needs a ProfilePath, so the
+		// random pick stays within the self-contained profiles.
 		num_Profile, _ = strconv.Atoi(Utils.GenerateNumer(1, 5))
 	} else {
-		num_Profile, _ = strconv.Atoi(Profile)
+		var err error
+		num_Profile, err = strconv.Atoi(Profile)
+		if err != nil || num_Profile < 1 || num_Profile >= len(Struct.Profile_Names) {
+			log.Fatalf("Error: Profile must be a number between 1 and %d", len(Struct.Profile_Names)-1)
+		}
 	}
 	if metadata == "base64" {
 		Beacon_GETPOST.Variables["metadata_mode"] = metadata
@@ -381,7 +395,7 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	} else {
 		Beacon_Stage_p1.Variables["sleep_mask"] = "false"
 	}
-	gen_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 6))
+	gen_number := Utils.RandIndex(len(Struct.Magic_PE))
 	Beacon_Stage_p1.Variables["magic_mz_x64"] = Struct.Magic_PE[gen_number]
 	Beacon_Stage_p1.Variables["magic_pe"] = strings.ToUpper(Utils.GenerateSingleValue(2))
 
@@ -410,13 +424,13 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	}
 
 	if beacon_PE == "" {
-		PE_Num, _ := strconv.Atoi(Utils.GenerateNumer(0, 30))
+		PE_Num := Utils.RandIndex(len(Struct.Peclone_list))
 		Beacon_Stage_p2.Variables["pe"] = Struct.Peclone_list[PE_Num]
 	}
 	if beacon_PE != "" {
-		PE_Num, _ := strconv.Atoi(beacon_PE)
-		if PE_Num > 30 {
-			log.Fatal("Error: Please provide a valid PE number less the 31 option")
+		PE_Num, err := strconv.Atoi(beacon_PE)
+		if err != nil || PE_Num < 1 || PE_Num > len(Struct.Peclone_list) {
+			log.Fatalf("Error: PE_Clone must be a number between 1 and %d", len(Struct.Peclone_list))
 		}
 		Beacon_Stage_p2.Variables["pe"] = Struct.Peclone_list[(PE_Num - 1)]
 	}
@@ -476,6 +490,13 @@ func GenerateProcessInject(processinject_min_alloc, injector string) map[string]
 	}
 	Process_Inject.Variables["ThreadStartNum"] = Utils.GenerateNumer(500, 2500)
 	Process_Inject.Variables["ThreadStartNumv2"] = Utils.GenerateNumer(500, 2500)
+	if injector == "" {
+		// Every other optional flag either defaults or picks at random when
+		// left blank. Without a default here the else branch below fires and
+		// SourcePoint cannot generate a profile at all unless -Injector is
+		// passed, even though nothing documents it as required.
+		injector = "VirtualAllocEx"
+	}
 	if injector == "NtMapViewOfSection" {
 		Process_Inject.Variables["injector"] = injector
 	} else if injector == "VirtualAllocEx" {
@@ -508,7 +529,10 @@ func GenerateProfile(Profile, CDN, CDN_Value, cert_password, custom_cert, Profil
 			fmt.Println("[!] Self Signed SSL Cerificate Used")
 		} else if num_Profile == 6 {
 			if CDN == "" {
-				log.Fatal("Error: Please provide a CDN value in order to use AzureEdge profiles")
+				log.Fatal("Error: Please provide a CDN cookie name (-CDN) in order to use AzureEdge profiles")
+			}
+			if CDN_Value == "" {
+				log.Fatal("Error: Please provide a CDN cookie value (-CDN-Value) in order to use AzureEdge profiles")
 			}
 			if cert_password == "" {
 				log.Fatal("Error: Please provide a Password value to use this profile")
