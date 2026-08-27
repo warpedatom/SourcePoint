@@ -46,17 +46,23 @@ func dnsLabel(n int) string {
 	return string(b)
 }
 
-// dnsDistinctLabels returns count distinct labels, starting at length n. The
-// get_*/put_* prefixes are how the teamserver tells one request type from
+// dnsDistinctLabels returns count distinct labels, every one of length n.
+//
+// The get_*/put_* prefixes are how the teamserver tells one request type from
 // another, so a collision between any two would break the channel rather than
-// merely look wrong. A collision widens the label space instead of spinning.
+// merely look wrong. Colliding candidates are redrawn at the same length: an
+// earlier version widened n on a collision, which quietly made every label
+// after the first collision one character longer and pushed the resulting
+// prefix past the eight character maximum c2lint recommends.
+//
+// There are 26 * 36^(n-1) possible labels, which for the values used here
+// exceeds count by orders of magnitude, so the redraw terminates.
 func dnsDistinctLabels(count, n int) []string {
 	out := make([]string, 0, count)
 	seen := make(map[string]bool, count)
 	for len(out) < count {
 		label := dnsLabel(n)
 		if seen[label] {
-			n++
 			continue
 		}
 		seen[label] = true
@@ -102,12 +108,20 @@ func GenerateDNSBeacon(enabled bool, dnsIdle string) string {
 
 	// The documentation values share a first label and vary the second
 	// ("doc.bc.", "doc.tx."). Keeping that shape keeps the queries short.
-	base := dnsLabel(3 + dnsRNG.Intn(3))
+	//
+	// The base is capped at 4 characters so the full prefix lands at 7 or 8,
+	// within the 8 character maximum c2lint recommends. Every indicator
+	// character is data space lost from each query, so overshooting costs DNS
+	// throughput on every request the beacon makes.
+	base := dnsLabel(3 + dnsRNG.Intn(2))
 	labels := dnsDistinctLabels(7, 2)
 
 	directives := []struct{ key, value string }{
 		{"dns_idle", dnsIdle},
-		{"dns_max_txt", "199"},
+		// Cobalt Strike requires dns_max_txt to be divisible by four and
+		// rejects the profile otherwise. The commented-out block carried 199,
+		// which is not, so this uses the documented default of 252.
+		{"dns_max_txt", "252"},
 		{"dns_sleep", "1"},
 		{"dns_ttl", "5"},
 		{"maxdns", "200"},
