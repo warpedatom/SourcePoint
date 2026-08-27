@@ -960,7 +960,7 @@ header "Accept" "*/*";
 }
 
 server {
-	header "Server" "nginx";    
+	header "Server" "Microsoft-IIS/10.0";    
 }
 
 
