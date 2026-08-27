@@ -251,8 +251,9 @@ Example: "lznt1,rc4 \"64\",xor \"32\",base64"`)
 	smartinject := flag.Bool("SmartInject", false, "Enable Smart Inject")
 	sleep_mask := flag.Bool("SleepMask", true, "Enable Sleep Mask")
 	cs_version := flag.String("CSVersion", Loader.DefaultCSVersion, `Cobalt Strike release the profile is generated for.
-4.13 removed the stage.rdll_loader and stage.name options, so profiles built
-for 4.13 or newer omit them. Set this lower to target an older team server:
+4.13 removed the stage.rdll_loader and stage.name options and its Beacon has
+outgrown the PE clone image_size values, so profiles built for 4.13 or newer
+omit all three. Set this lower to target an older team server:
 [*] 4.13 (or newer)
 [*] 4.12 (or older)`)
 	flag.Parse()

@@ -82,6 +82,44 @@ func TestStripPECloneNameRemovesOnlyTheNameDirective(t *testing.T) {
 	}
 }
 
+// The beacon has outgrown the image_size values baked into most clone entries,
+// so 4.13 rejects them with "must be larger than N bytes". They have to go, and
+// nothing else may go with them.
+func TestStripPECloneImageSizeRemovesOnlyThoseDirectives(t *testing.T) {
+	for i, pe := range Struct.Peclone_list {
+		stripped := StripPECloneImageSize(pe)
+		if strings.Contains(stripped, "image_size_x86") || strings.Contains(stripped, "image_size_x64") {
+			t.Errorf("Peclone_list[%d]: an image_size directive survived stripping", i)
+		}
+		for _, line := range strings.Split(pe, "\n") {
+			if strings.TrimSpace(line) == "" || strings.Contains(line, "image_size_x") {
+				continue
+			}
+			if !strings.Contains(stripped, line) {
+				t.Errorf("Peclone_list[%d]: stripping also removed %q", i, strings.TrimSpace(line))
+			}
+		}
+	}
+}
+
+// Together, the two strips have to leave a clone block 4.13 accepts: no name,
+// no image_size, but the rest of the masquerade intact.
+func TestStrippedCloneKeepsTheRemainingMasquerade(t *testing.T) {
+	for i, pe := range Struct.Peclone_list {
+		stripped := StripPECloneImageSize(StripPECloneName(pe))
+		for _, gone := range []string{"set name", "image_size_x86", "image_size_x64"} {
+			if strings.Contains(stripped, gone) {
+				t.Errorf("Peclone_list[%d]: %q survived", i, gone)
+			}
+		}
+		for _, keep := range []string{"set checksum", "set compile_time", "set entry_point", "set rich_header"} {
+			if !strings.Contains(stripped, keep) {
+				t.Errorf("Peclone_list[%d]: %q did not survive", i, keep)
+			}
+		}
+	}
+}
+
 // set pipename and set ssh_pipename must not be mistaken for set name.
 func TestStripPECloneNameLeavesPipenamesAlone(t *testing.T) {
 	in := "set pipename \"foo\";\nset ssh_pipename \"bar\";\nset name \"baz.dll\";\n"

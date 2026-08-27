@@ -131,7 +131,7 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 		fmt.Println("[!] " + syscall_method + " syscall method selected")
 	}
 	if csv.AtLeast(4, 13) {
-		fmt.Println("[!] Targeting Cobalt Strike " + csv.String() + ": stage.rdll_loader and stage.name omitted, both removed in 4.13")
+		fmt.Println("[!] Targeting Cobalt Strike " + csv.String() + ": omitting stage.rdll_loader and stage.name (removed in 4.13) and the PE clone image_size values (smaller than the current beacon)")
 	}
 	// num_Profile holds the resolved profile, including the one picked at
 	// random when -Profile was not supplied. Re-parsing the raw flag here meant
@@ -486,6 +486,7 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	Beacon_Stage_p2.Variables["pe_name"] = PECloneName(Beacon_Stage_p2.Variables["pe"])
 	if csv.AtLeast(4, 13) {
 		Beacon_Stage_p2.Variables["pe"] = StripPECloneName(Beacon_Stage_p2.Variables["pe"])
+		Beacon_Stage_p2.Variables["pe"] = StripPECloneImageSize(Beacon_Stage_p2.Variables["pe"])
 	}
 
 	if beacongate == "" {

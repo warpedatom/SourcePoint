@@ -74,8 +74,30 @@ func PECloneName(pe string) string {
 
 // StripPECloneName removes the "set name" directive from a PE clone block.
 // Cobalt Strike 4.13 rejects stage.name while still accepting the rest of the
-// clone, so the checksum, compile time, entry point, image size and rich header
-// all survive; only the spoofed module name is lost.
+// clone, so the checksum, compile time, entry point and rich header all
+// survive; only the spoofed module name is lost.
 func StripPECloneName(pe string) string {
 	return setNameLine.ReplaceAllString(pe, "")
+}
+
+// imageSizeLine matches the image_size_x86 and image_size_x64 directives inside
+// a PE clone block.
+var imageSizeLine = regexp.MustCompile(`(?m)^.*\bset\s+image_size_x(?:86|64)\s+"[^"]*".*$\n?`)
+
+// StripPECloneImageSize removes the image_size directives from a PE clone
+// block.
+//
+// Cobalt Strike requires each to be at least the size of the beacon DLL it
+// stomps into the image, and rejects the profile otherwise:
+//
+//	[-] .stage.image_size_x86 must be larger than 372736 bytes
+//	[-] .stage.image_size_x64 must be larger than 462848 bytes
+//
+// The values in Peclone_list are the real sizes of the modules being mimicked,
+// and the beacon has outgrown most of them. Raising them to a fixed floor would
+// only age out again as the beacon grows with each release, so they are dropped
+// and Cobalt Strike sizes the image itself. Four of the thirty entries already
+// carry no image_size directives and load fine, which is what this relies on.
+func StripPECloneImageSize(pe string) string {
+	return imageSizeLine.ReplaceAllString(pe, "")
 }
