@@ -38,4 +38,6 @@ SmartInject: False
 BeaconGate: "All"
 SleepMask: False
 CSVersion: "4.13"
+DNS: False
+DNSIdle: "0.0.0.0"
 

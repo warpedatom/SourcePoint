@@ -52,6 +52,8 @@ type FlagOptions struct {
 	smartinject              bool
 	sleep_mask               bool
 	cs_version               string
+	dns                      bool
+	dns_idle                 string
 }
 
 type conf struct {
@@ -95,6 +97,8 @@ type conf struct {
 	SmartInject          *bool  `yaml:"SmartInject"`
 	SleepMask            *bool  `yaml:"SleepMask"`
 	CSVersion            string `yaml:"CSVersion"`
+	DNS                  *bool  `yaml:"DNS"`
+	DNSIdle              string `yaml:"DNSIdle"`
 }
 
 func (c *conf) getConf(yamlfile string) *conf {
@@ -255,8 +259,10 @@ Example: "lznt1,rc4 \"64\",xor \"32\",base64"`)
 for 4.13 or newer omit them. Set this lower to target an older team server:
 [*] 4.13 (or newer)
 [*] 4.12 (or older)`)
+	dns := flag.Bool("DNS", false, "Add a dns-beacon block for C2 over DNS, with all staging and request labels randomly generated")
+	dns_idle := flag.String("DNSIdle", "0.0.0.0", "IPv4 address returned when the beacon has no tasks (only used with -DNS)")
 	flag.Parse()
-	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, rdll_loader: *rdll_loader, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask, cs_version: *cs_version}
+	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, rdll_loader: *rdll_loader, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask, cs_version: *cs_version, dns: *dns, dns_idle: *dns_idle}
 
 }
 
@@ -315,6 +321,8 @@ func main() {
 		setBool(&opt.smartinject, c.SmartInject)
 		setBool(&opt.sleep_mask, c.SleepMask)
 		setString(&opt.cs_version, c.CSVersion)
+		setBool(&opt.dns, c.DNS)
+		setString(&opt.dns_idle, c.DNSIdle)
 	}
 
 	if opt.outFile == "" {
@@ -329,5 +337,5 @@ func main() {
 	if (opt.customuriGET != "" && opt.customuriPOST == "") || (opt.customuriGET == "" && opt.customuriPOST != "") {
 		log.Fatal("Error: When using CustomuriGET/CustomuriPOST, both must be sepecified")
 	}
-	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.rdll_loader, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask, opt.cs_version)
+	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.rdll_loader, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask, opt.dns, opt.dns_idle, opt.cs_version)
 }
