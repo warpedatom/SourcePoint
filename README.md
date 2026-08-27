@@ -1,4 +1,59 @@
 
+> ## About this fork
+>
+> This is a fork of [Tylous/SourcePoint](https://github.com/Tylous/SourcePoint).
+> Upstream `main` does not currently produce a profile that Cobalt Strike 4.13
+> will load: `c2lint` rejects every generated profile. This branch fixes that
+> and a number of other defects found while getting there.
+>
+> **Branches**
+>
+> | Branch | Contents |
+> |---|---|
+> | `working` (default) | Everything below, merged. Build from this. |
+> | `main` | An exact mirror of upstream, kept clean so pull requests contain only their own changes. |
+> | `fix/profile-entropy-and-config-handling` | Correctness fixes, first unit tests, CI |
+> | `feat/dns-staging` | DNS staging support |
+> | `feat/cs413-compat` | The `-CSVersion` gate |
+> | `chore/gitignore` | A non-empty `.gitignore` |
+>
+> **What differs from upstream**
+>
+> - Profiles load on Cobalt Strike 4.13. Four separate causes: `smartinject`
+>   was set in the `stage` block where it is a `post-ex` option, `sleep_mask`
+>   was emitted unquoted, and 4.13 rejects `stage.rdll_loader` and `stage.name`.
+>   A fifth blocker is that the Beacon has outgrown the `image_size` values in
+>   the PE clone table, so only four of the thirty `-PE_Clone` choices worked.
+>   The version-specific omissions sit behind `-CSVersion` (default `4.13`), so
+>   `-CSVersion 4.12` restores the old behaviour for older team servers.
+> - `-Injector` is no longer silently mandatory. Upstream cannot generate a
+>   profile at all without it, despite nothing documenting it as required.
+> - Static indicators removed: the Slack profile hardcoded its `http-stager`
+>   URIs, so every profile ever generated from it shared two constant paths.
+> - `-Uri N` returns N URIs. A no-op retry branch silently dropped some.
+> - `-Sleep`, `-Jitter`, `-Datajitter`, `-Allocation` and the `-Tasks*MaxSize`
+>   flags are validated before they reach the profile rather than failing when
+>   the team server refuses to load it.
+> - DNS staging (`-DNS`), the upstream roadmap item, with all labels generated
+>   per profile rather than Cobalt Strike's documentation examples.
+> - Unit tests and a CI workflow, neither of which existed.
+>
+> **Upstream status:** all of this is offered back as
+> [#30](https://github.com/Tylous/SourcePoint/pull/30),
+> [#31](https://github.com/Tylous/SourcePoint/pull/31),
+> [#33](https://github.com/Tylous/SourcePoint/pull/33),
+> [#34](https://github.com/Tylous/SourcePoint/pull/34) and issue
+> [#32](https://github.com/Tylous/SourcePoint/issues/32). If they are merged,
+> this fork becomes redundant, which is the intended outcome.
+>
+> **Verified:** a profile generated from `working` passes `c2lint`, loads into a
+> licensed Cobalt Strike 4.13 team server, and runs a Beacon whose check-in
+> intervals match its configured sleep and jitter.
+>
+> Everything below is upstream's documentation, unchanged.
+
+---
+
 <p align="center"> <img src=Screenshots/logo.png  border="2px solid #555">
 
 # SourcePoint
