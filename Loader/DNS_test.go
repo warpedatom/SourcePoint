@@ -2,6 +2,7 @@ package Loader
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -42,6 +43,24 @@ func TestDNSBeaconDropsDocumentationValues(t *testing.T) {
 
 // The get_*/put_* prefixes are how the teamserver distinguishes request types.
 // Two sharing a value would break the channel, not just look wrong.
+// All seven prefixes have to share a length. Redrawing a collision at a wider
+// length made every label after the first collision one character longer.
+func TestDNSBeaconLabelsShareALength(t *testing.T) {
+	keys := []string{
+		"beacon", "get_A", "get_AAAA", "get_TXT",
+		"put_metadata", "put_output", "dns_stager_subhost",
+	}
+	for i := 0; i < 200; i++ {
+		v := dnsValues(t, GenerateDNSBeacon(true, ""))
+		want := len(v["beacon"])
+		for _, k := range keys {
+			if len(v[k]) != want {
+				t.Fatalf("%s = %q is %d characters, but beacon is %d", k, v[k], len(v[k]), want)
+			}
+		}
+	}
+}
+
 func TestDNSBeaconLabelsAreDistinct(t *testing.T) {
 	keys := []string{
 		"beacon", "get_A", "get_AAAA", "get_TXT",
@@ -82,6 +101,37 @@ func TestDNSIdleDefaultsAndHonoursOperatorValue(t *testing.T) {
 	}
 	if got := dnsValues(t, GenerateDNSBeacon(true, "8.8.4.4"))["dns_idle"]; got != "8.8.4.4" {
 		t.Errorf("dns_idle = %q, want 8.8.4.4", got)
+	}
+}
+
+// Cobalt Strike rejects the profile outright unless dns_max_txt is divisible
+// by four. The commented-out block this feature replaced carried 199, which is
+// not, so the value has to be checked rather than inherited.
+func TestDNSMaxTXTIsDivisibleByFour(t *testing.T) {
+	got := dnsValues(t, GenerateDNSBeacon(true, ""))["dns_max_txt"]
+	n, err := strconv.Atoi(got)
+	if err != nil {
+		t.Fatalf("dns_max_txt = %q, which is not a number", got)
+	}
+	if n%4 != 0 {
+		t.Errorf("dns_max_txt = %d, which Cobalt Strike rejects because it is not divisible by four", n)
+	}
+}
+
+// c2lint warns when a prefix runs past eight characters, because every
+// indicator character is data space lost from each query.
+func TestDNSLabelsStayWithinTheRecommendedLength(t *testing.T) {
+	keys := []string{
+		"beacon", "get_A", "get_AAAA", "get_TXT",
+		"put_metadata", "put_output", "dns_stager_subhost",
+	}
+	for i := 0; i < 100; i++ {
+		v := dnsValues(t, GenerateDNSBeacon(true, ""))
+		for _, k := range keys {
+			if len(v[k]) > 8 {
+				t.Fatalf("%s = %q is %d characters, over the 8 character maximum", k, v[k], len(v[k]))
+			}
+		}
 	}
 }
 
