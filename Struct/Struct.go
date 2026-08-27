@@ -612,7 +612,7 @@ header "Accept-Language" "en-US";
 		{{.Variables.metadata_mode}};
 	
 	append ";_ga=GA1.2.875";
-	append "__ar_v4=%8867UMDGS643";
+	append ";__ar_v4=%8867UMDGS643";
 	prepend "d=";
 	prepend "_ga=GA1.2.875;";
 	prepend "b=.12vPkW22o;";

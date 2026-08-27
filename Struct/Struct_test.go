@@ -31,3 +31,15 @@ func TestPostExSmartinjectIsTemplated(t *testing.T) {
 		t.Errorf("post-ex block does not contain %s", want)
 	}
 }
+
+// The Slack profile appends __ar_v4 to the Cookie header in both directions.
+// The http-post side was missing the ";" separator, so the request emitted
+// _ga=GA1.2.875__ar_v4=... as one mangled cookie value while http-get emitted
+// it correctly, leaving GET and POST from the same host visibly inconsistent.
+func TestCookieFragmentsKeepTheirSeparator(t *testing.T) {
+	for i, profile := range HTTP_GET_POST_list {
+		if strings.Contains(profile, `append "__ar_v4=`) {
+			t.Errorf("HTTP_GET_POST_list[%d]: __ar_v4 is appended with no leading separator, which mangles the Cookie value", i)
+		}
+	}
+}
