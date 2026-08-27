@@ -94,7 +94,8 @@ func validateNumber(flagName, value string, min, max int) {
 	}
 }
 
-func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool) {
+func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool, cs_version string) {
+	csv := ParseCSVersion(cs_version)
 	Beacon_Com := &Beacon_Com{}
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p2 := &Beacon_Stage_p2{}
@@ -110,15 +111,13 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 	HostStageMessage, Beacon_Com.Variables = GenerateComunication(stage, sleeptime, jitter, useragent, datajitter, tasks_max_size, tasks_proxy_max_size, tasks_dns_proxy_max_size, httplib)
 	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof, smartinject)
 	Beacon_GETPOST.Variables = GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customuriPOST, CDN, CDN_Value, Profile, Forwarder)
-	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, rdll_loader, transform_obfuscate, sleep_mask)
+	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, rdll_loader, transform_obfuscate, sleep_mask, csv)
 	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector)
 	Beacon_GETPOST_Profile.Variables, Beacon_SSL.Variables = GenerateProfile(Profile, CDN, CDN_Value, cert_password, custom_cert, ProfilePath, Host)
 	fmt.Println("[*] Building Profile...")
 	Build(custom_cert, cert_password, outFile, Beacon_Com, Beacon_Stage_p1, Beacon_Stage_p2, Beacon_Stage_p3, Process_Inject, Beacon_PostEX, Beacon_GETPOST, Beacon_GETPOST_Profile, Beacon_SSL)
 	fmt.Println(HostStageMessage)
-	PE := strings.Split(Beacon_Stage_p2.Variables["pe"], `;`)
-	PE_Name := strings.Split(PE[len(PE)-3], `"`)
-	fmt.Println("[*] Beacon DLL Spoofed To: " + PE_Name[1])
+	fmt.Println("[*] Beacon DLL Spoofed To: " + Beacon_Stage_p2.Variables["pe_name"])
 	PEX := strings.Split(Beacon_PostEX.Variables["Post_EX_Process_Name"], `sysnative\\`)
 	PEX_Name := PEX[1]
 	fmt.Println("[*] Post-Ex Process Name: " + PEX_Name[:(len(PEX_Name)-3)])
@@ -130,6 +129,9 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 		fmt.Println("[!] No Syscall method selected")
 	} else {
 		fmt.Println("[!] " + syscall_method + " syscall method selected")
+	}
+	if csv.AtLeast(4, 13) {
+		fmt.Println("[!] Targeting Cobalt Strike " + csv.String() + ": stage.rdll_loader and stage.name omitted, both removed in 4.13")
 	}
 	// num_Profile holds the resolved profile, including the one picked at
 	// random when -Profile was not supplied. Re-parsing the raw flag here meant
@@ -386,7 +388,7 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	return Beacon_GETPOST.Variables
 }
 
-func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, sleep_mask bool) (map[string]string, map[string]string, string) {
+func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, sleep_mask bool, csv CSVersion) (map[string]string, map[string]string, string) {
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p1.Variables = make(map[string]string)
 
@@ -405,12 +407,18 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	} else {
 		log.Fatal("Error: Please provide a valid Syscall Method")
 	}
-	if rdll_loader == "PrependLoader" {
-		Beacon_Stage_p1.Variables["rdll_loader"] = "PrependLoader"
-	} else if rdll_loader == "StompLoader" {
-		Beacon_Stage_p1.Variables["rdll_loader"] = "StompLoader"
-	} else {
+	// The flag is validated regardless of target version, so a typo is still an
+	// error rather than being silently discarded along with the directive.
+	if rdll_loader != "PrependLoader" && rdll_loader != "StompLoader" {
 		log.Fatal("Error: Please provide a valid Rdll Loader option")
+	}
+	if csv.AtLeast(4, 13) {
+		// Cobalt Strike 4.13 removed stage.rdll_loader entirely: c2lint rejects
+		// it on both PrependLoader and StompLoader, so this is not the earlier
+		// stomp loader deprecation.
+		Beacon_Stage_p1.Variables["rdll_loader"] = ""
+	} else {
+		Beacon_Stage_p1.Variables["rdll_loader"] = `set rdll_loader "` + rdll_loader + `";`
 	}
 	// Set default value for eaf_bypass
 	if eaf_bypass == true {
@@ -471,6 +479,13 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 			log.Fatalf("Error: PE_Clone must be a number between 1 and %d", len(Struct.Peclone_list))
 		}
 		Beacon_Stage_p2.Variables["pe"] = Struct.Peclone_list[(PE_Num - 1)]
+	}
+
+	// Capture the spoofed module name before it is stripped below, so the
+	// summary line can still report it.
+	Beacon_Stage_p2.Variables["pe_name"] = PECloneName(Beacon_Stage_p2.Variables["pe"])
+	if csv.AtLeast(4, 13) {
+		Beacon_Stage_p2.Variables["pe"] = StripPECloneName(Beacon_Stage_p2.Variables["pe"])
 	}
 
 	if beacongate == "" {

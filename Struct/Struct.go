@@ -1349,7 +1349,7 @@ stage {
 	set eaf_bypass "{{.Variables.eaf_bypass}}";
 	set rdll_use_syscalls "{{.Variables.rdll_use_syscalls}}";
 	set copy_pe_header "{{.Variables.copy_pe_header}}";
-	set rdll_loader "{{.Variables.rdll_loader}}";
+	{{.Variables.rdll_loader}}
 	{{.Variables.transform_obfuscate}}
 	`
 }
